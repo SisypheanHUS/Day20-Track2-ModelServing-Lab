@@ -4,28 +4,24 @@
 
 ---
 
-**Họ Tên:** _<Họ Tên>_
-**Cohort:** _<A20-K1 / A20-K2 / ...>_
-**Ngày submit:** _<YYYY-MM-DD>_
+**Họ Tên:** Dinh Thai Tuan
+**MSSV:** 2A202600360
+**Ngày submit:** 2026-05-07
 
 ---
 
 ## 1. Hardware spec (từ `00-setup/detect-hardware.py`)
 
-> Paste output của `python 00-setup/detect-hardware.py` vào đây, hoặc điền thủ công:
+- **OS:** Windows 11 Pro (10.0.26200)
+- **CPU:** Intel Core i7-10750H @ 2.60GHz
+- **Cores:** 6 physical / 12 logical
+- **CPU extensions:** AVX2
+- **RAM:** 31.8 GB
+- **Accelerator:** NVIDIA Quadro T2000 Max-Q 4GB VRAM
+- **llama.cpp backend đã chọn:** CPU (CUDA runtime DLLs unavailable — CUDA Toolkit v13.0 installed nhưng thiếu runtime binaries, nên fall back sang CPU)
+- **Recommended model tier:** Llama-3.2-3B-Instruct (Q4_K_M)
 
-- **OS:** _<macOS 14 / Windows 11 / Ubuntu 24.04 / ...>_
-- **CPU:** _<Apple M2 / Intel i7-12700H / AMD Ryzen 7 5800H / ...>_
-- **Cores:** _<physical / logical>_
-- **CPU extensions:** _<AVX2 / AVX-512 / NEON / —>_
-- **RAM:** _<GB>_
-- **Accelerator:** _<NVIDIA RTX 4060 8GB / Apple Metal / AMD ROCm / Vulkan / CPU only>_
-- **llama.cpp backend đã chọn:** _<CUDA / Metal / Vulkan / CPU>_
-- **Recommended model tier:** _<TinyLlama-1.1B / Qwen2.5-1.5B / Llama-3.2-3B / Qwen2.5-7B>_
-
-**Setup story** (≤ 80 chữ): những gì cần thay đổi để lab chạy được trên máy bạn (vd: dùng WSL2, install CUDA Toolkit, fall back sang Vulkan vì ROCm phiên bản kén, tắt antivirus để pip install nhanh hơn, v.v.):
-
-_Answer here._
+**Setup story** (≤ 80 chữ): Máy có CUDA Toolkit v13.0 nhưng thiếu runtime DLLs (cudart64, cublas64) nên llama-cpp-python CUDA wheel không load được. Fall back sang CPU prebuilt wheel. Cũng cần bật PYTHONIOENCODING=utf-8 vì Windows cp1252 không render Unicode box-drawing characters. Repo dùng Q3_K_L thay Q2_K vì bartowski repo không có Q2_K cho Llama-3.2-3B.
 
 ---
 
@@ -35,12 +31,10 @@ _Answer here._
 
 | Model | Load (ms) | TTFT P50/P95 (ms) | TPOT P50/P95 (ms) | E2E P50/P95/P99 (ms) | Decode rate (tok/s) |
 |---|--:|--:|--:|--:|--:|
-| (Q4_K_M) | | | | | |
-| (Q2_K)   | | | | | |
+| Llama-3.2-3B-Instruct-Q4_K_M.gguf | 2559 | 348 / 463 | 166.2 / 184.3 | 10784 / 11973 / 12005 | 6.0 |
+| Llama-3.2-3B-Instruct-Q3_K_L.gguf | 692 | 563 / 639 | 150.0 / 186.0 | 9959 / 12288 / 12362 | 6.7 |
 
-**Một quan sát** (≤ 50 chữ): Q4_K_M vs Q2_K trên máy bạn — số liệu nói gì? Quality đáng đánh đổi không?
-
-_Answer here._
+**Một quan sát** (≤ 50 chữ): Q3_K_L load nhanh hơn 3.7x (692 vs 2559ms) và decode nhanh hơn ~11% (6.7 vs 6.0 tok/s) nhờ file nhỏ hơn → ít memory bandwidth. Tuy nhiên TTFT cao hơn 62%. Trên CPU-only, smaller quant thắng ở throughput nhưng prefill chậm hơn do lower precision arithmetic.
 
 ---
 
@@ -50,31 +44,27 @@ _Answer here._
 
 | Concurrency | Total RPS | TTFB P50 (ms) | E2E P95 (ms) | E2E P99 (ms) | Failures |
 |--:|--:|--:|--:|--:|--:|
-| 10 | | | | | |
-| 50 | | | | | |
+| 10 | 0.07 | 42000 | 56000 | 56000 | 0 |
+| 50 | 0.04 | 51000 | 51000 | 51000 | 0 |
 
-**KV-cache observation** (từ `record-metrics.py`): peak `llamacpp:kv_cache_usage_ratio` ở concurrency 50 = _<0.XX>_, nghĩa là …
-
-_Answer here._
+**KV-cache observation**: Dùng llama-cpp-python server (Python binding), không có /metrics endpoint (đó là feature của llama-server native binary). Server xử lý serial — chỉ 1 request tại 1 thời điểm, nên concurrency 50 thực tế giống concurrency 1 với 49 requests xếp hàng. RPS giảm từ 0.07 xuống 0.04 khi tăng users vì queuing delay tăng và 60s run time chỉ đủ cho 2 requests hoàn thành. Đây là minh họa rõ ràng tại sao continuous batching (như trong llama-server native với `--parallel`) quan trọng cho production serving.
 
 ---
 
 ## 4. Track 03 — Milestone integration
 
-- **N16 (Cloud/IaC):** _<piece you connected — k3d cluster / GCP project / docker-compose / "stub: localhost only">_
-- **N17 (Data pipeline):** _<piece — Airflow DAG / batch job / "stub: in-memory dict">_
-- **N18 (Lakehouse):** _<piece — Delta Lake table / Iceberg / "stub: SQLite">_
-- **N19 (Vector + Feature Store):** _<piece — Qdrant index / Feast / "stub: TOY_DOCS">_
+- **N16 (Cloud/IaC):** stub: localhost only
+- **N17 (Data pipeline):** stub: in-memory dict
+- **N18 (Lakehouse):** stub: in-memory TOY_DOCS
+- **N19 (Vector + Feature Store):** stub: TOY_DOCS (keyword overlap scoring)
 
 **Nơi tốn nhiều ms nhất** trong pipeline (đo bằng `time.perf_counter` trong `pipeline.py`):
 
-- embed: _<ms>_
-- retrieve: _<ms>_
-- llama-server: _<ms>_
+- embed: N/A (stub dùng keyword overlap, không có embedding)
+- retrieve: 0.1 ms
+- llama-server: 8371 – 21308 ms (trung bình ~15760 ms)
 
-**Reflection** (≤ 60 chữ): bottleneck nằm ở đâu? Có khớp với kỳ vọng không?
-
-_Answer here._
+**Reflection** (≤ 60 chữ): Bottleneck hoàn toàn nằm ở LLM inference — retrieve chỉ 0.1ms (toy keyword matching), còn llama-server chiếm >99.99% pipeline time. Khớp kỳ vọng: trên CPU-only với 3B model, decode ~6 tok/s nên 200 max_tokens cần ~33s. Trong production, embedding + vector search sẽ thêm 10-50ms nhưng vẫn negligible so với LLM.
 
 ---
 
@@ -82,38 +72,38 @@ _Answer here._
 
 > **Most important section.** Pick **một** thay đổi từ bonus track (build flag, thread sweep, quant pick, GPU offload, KV-cache quantization, speculative decoding, bất cứ challenge nào trong `BONUS-llama-cpp-optimization/CHALLENGES.md`) đã tạo ra speedup lớn nhất trên máy bạn.
 
-**Change:** _<vd: rebuild llama.cpp với `-DGGML_NATIVE=ON -DGGML_BLAS=ON`; vd: hạ `-t` từ 12 xuống 6; vd: bật Metal trên M2>_
+**Change:** Chuyển từ Q4_K_M (2.0 GB) sang Q3_K_L (1.6 GB) — quantization nhỏ hơn trên CPU-only system.
 
 **Before vs after** (paste 2-3 dòng từ sweep output):
 
 ```
-before: <số liệu>
-after:  <số liệu>
-speedup: ~<X.Y>×
+before (Q4_K_M): TPOT P50 = 166.2ms, decode = 6.0 tok/s, load = 2559ms
+after  (Q3_K_L): TPOT P50 = 150.0ms, decode = 6.7 tok/s, load = 692ms
+speedup: ~1.12× decode, ~3.7× load time
 ```
 
 **Tại sao nó work** (1–2 đoạn ngắn — đây là phần grader đọc kỹ nhất):
 
-_Giải thích như đang nói với một bạn cùng lớp đang ngồi cạnh. Tránh "vibes-based" reasoning — bám vào mô hình mental của hardware (memory bandwidth? compute? cache?). Nếu kết quả khác kỳ vọng từ deck, nói rõ — đó là phần grader thưởng điểm._
+Trên i7-10750H CPU-only (không GPU offload), bottleneck là memory bandwidth — mỗi token decode cần đọc toàn bộ model weights từ RAM qua CPU cache. Q3_K_L nhỏ hơn ~20% so với Q4_K_M, nghĩa là mỗi decode step đọc ít bytes hơn → nhanh hơn ~12%. Load time giảm 3.7x vì file nhỏ hơn mmap nhanh hơn.
+
+Điều thú vị: TTFT lại *tăng* ở Q3_K_L (563ms vs 348ms P50). Prefill là compute-bound (matrix multiply toàn bộ prompt tokens cùng lúc), không bandwidth-bound như decode. Q3_K_L cần dequantization phức tạp hơn Q4_K_M (3-bit packing kém aligned hơn 4-bit), nên prefill chậm hơn dù decode nhanh hơn. Đây là tradeoff mà deck §1 đề cập: quantization nhỏ hơn không phải lúc nào cũng nhanh hơn — phụ thuộc phase nào đang chạy.
 
 ---
 
 ## 6. (Optional) Điều ngạc nhiên nhất
 
-_(1–2 câu — không bắt buộc, nhưng người grader đọc tất cả)_
-
-_Answer here._
+Trên CPU-only, Q3_K_L decode nhanh hơn Q4_K_M (~12%) nhưng prefill chậm hơn (~62%). Nếu chỉ nhìn TPOT thì smaller quant có vẻ "miễn phí" — nhưng TTFT tăng đáng kể. Với workload long-context (RAG), TTFT penalty này sẽ rất rõ.
 
 ---
 
 ## 7. Self-graded checklist
 
-- [ ] `hardware.json` đã commit
-- [ ] `models/active.json` đã commit (hoặc paste path snapshot vào section 1)
-- [ ] `benchmarks/01-quickstart-results.md` đã commit
-- [ ] `benchmarks/02-server-results.md` (hoặc CSV từ `record-metrics.py`) đã commit
-- [ ] `benchmarks/bonus-*.md` đã commit (ít nhất 1 sweep)
-- [ ] Ít nhất 6 screenshots trong `submission/screenshots/` (xem `submission/screenshots/README.md`)
+- [x] `hardware.json` đã commit
+- [x] `models/active.json` đã commit
+- [x] `benchmarks/01-quickstart-results.md` đã commit
+- [x] `benchmarks/02-server-results.md` (CSV từ locust) đã commit
+- [ ] `benchmarks/bonus-*.md` đã commit (ít nhất 1 sweep) — không làm bonus sweep riêng, dùng so sánh Q4_K_M vs Q3_K_L từ Track 01
+- [ ] Ít nhất 6 screenshots trong `submission/screenshots/` — chạy qua CLI, không có screenshots
 - [ ] `make verify` exit 0 (chạy ngay trước khi push)
 - [ ] Repo trên GitHub ở chế độ **public**
 - [ ] Đã paste public repo URL vào VinUni LMS

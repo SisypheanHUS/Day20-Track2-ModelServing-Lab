@@ -51,7 +51,7 @@ def check_reflection_edited(path: Path, problems: list[str]) -> bool:
     if not path.exists():
         problems.append(f"MISSING  submission/REFLECTION.md")
         return False
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     leftover = []
     for pattern in TEMPLATE_MARKERS:
         # Some patterns are line-anchored (start with ^), others are inline.
